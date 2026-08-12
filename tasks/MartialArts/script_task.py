@@ -390,7 +390,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
         logger.info(f'MartialArts AP battles finished: {self.current_count}/{limit}')
 
     def enter_boss_fight(self) -> bool:
-        """在战斗小界面点击开始挑战并等待进入通用战斗页面。"""
+        """在战斗小界面点击开始或继续挑战，并等待进入通用战斗页面。"""
         timer = Timer(self.ENTER_BATTLE_TIMEOUT).start()
         click_count = 0
         while not timer.reached():
@@ -400,6 +400,12 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
                 return True
             if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=1) or \
                     self.appear_then_click(self.I_UI_CONFIRM, interval=1):
+                continue
+            # 首次挑战显示“开启挑战”，失败后会变成“继续挑战”；两者按钮位置相同。
+            if self.appear(self.I_CHECK_BATTLE_BOSS_MAIN):
+                if self.click(self.I_MAR_FIRE_BOSS_MAIN, interval=1.5):
+                    click_count += 1
+                    self.device.click_record_clear()
                 continue
             if self.appear_then_click(self.I_MAR_FIRE_BOSS_MAIN, interval=1.5):
                 click_count += 1
