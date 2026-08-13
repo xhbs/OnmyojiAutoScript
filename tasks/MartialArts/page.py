@@ -7,6 +7,7 @@ from module.logger import logger
 from tasks.Component.RightActivity.assets import RightActivityAssets
 from tasks.GameUi.action import conditional_action
 from tasks.GameUi.default_pages import random_click
+from tasks.GameUi.matcher import all_of, not_
 from tasks.GameUi.page import Page, page_main, page_shikigami_records
 from tasks.GlobalGame.assets import GlobalGameAssets
 from tasks.MartialArts.assets import MartialArtsAssets
@@ -60,7 +61,10 @@ page_martial_arts.connect(page_martial_arts_ap, MartialArtsAssets.I_TO_BATTLE_AP
                           key="page_martial_arts->page_martial_arts_ap")
 
 # 修行合训（首领地图）页面
-page_martial_arts_boss = Page(MartialArtsAssets.I_CHECK_BATTLE_BOSS)
+page_martial_arts_boss = Page(all_of(
+    MartialArtsAssets.I_CHECK_BATTLE_BOSS,
+    not_(MartialArtsAssets.I_CHECK_BATTLE_BOSS_MAIN),
+))
 page_martial_arts_boss.connect(page_martial_arts, GlobalGameAssets.I_UI_BACK_YELLOW,
                                key="page_martial_arts_boss->page_martial_arts")
 page_martial_arts.connect(page_martial_arts_boss, MartialArtsAssets.I_TO_BATTLE_BOSS,
