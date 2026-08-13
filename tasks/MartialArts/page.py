@@ -67,7 +67,10 @@ page_martial_arts.connect(page_martial_arts_boss, MartialArtsAssets.I_TO_BATTLE_
                           key="page_martial_arts->page_martial_arts_boss")
 
 # 搜寻首领后的战斗小界面
-page_martial_arts_boss_main = Page(MartialArtsAssets.I_CHECK_BATTLE_BOSS_MAIN)
+page_martial_arts_boss_main = Page(
+    MartialArtsAssets.I_CHECK_BATTLE_BOSS_MAIN,
+    priority=75,
+)
 page_martial_arts_boss_main.connect(
     page_martial_arts_boss,
     MartialArtsAssets.I_BOSS_MAIN_GOTO_BOSS,
