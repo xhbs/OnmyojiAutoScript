@@ -108,6 +108,15 @@
     "description": ""
   },
   {
+    "itemName": "assist_target",
+    "imageName": "mr_assist_target.png",
+    "roiFront": "116,151,29,31",
+    "roiBack": "95,135,85,55",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "助战模式最上方目标的等级标志"
+  },
+  {
     "itemName": "boss_main_goto_boss",
     "imageName": "mr_boss_main_goto_boss.png",
     "roiFront": "1189,80,30,35",

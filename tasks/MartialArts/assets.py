@@ -42,6 +42,7 @@ class MartialArtsAssets:
 	I_MAR_FIRE_BOSS_MAIN = RuleImage(roi_front=(1106,529,70,82), roi_back=(1101,524,80,92), threshold=0.8, method="Template matching", file="./tasks/MartialArts/mr/mr_mar_fire_boss_main.png")
 	#  
 	I_FIRE_OVER = RuleImage(roi_front=(1126,606,30,35), roi_back=(1121,601,40,45), threshold=0.8, method="Template matching", file="./tasks/MartialArts/mr/mr_fire_over.png")
+	I_ASSIST_TARGET = RuleImage(roi_front=(116,151,29,31), roi_back=(95,135,85,55), threshold=0.8, method="Template matching", file="./tasks/MartialArts/mr/mr_assist_target.png")
 	#  
 	I_BOSS_MAIN_GOTO_BOSS = RuleImage(roi_front=(1189,80,30,35), roi_back=(1184,75,40,45), threshold=0.8, method="Template matching", file="./tasks/MartialArts/mr/mr_boss_main_goto_boss.png")
 	#  
@@ -80,5 +81,3 @@ class MartialArtsAssets:
 	I_CHECK_BATTLE_BOSS = RuleImage(roi_front=(152,13,134,41), roi_back=(147,8,144,51), threshold=0.8, method="Template matching", file="./tasks/MartialArts/mr/mr_check_battle_boss.png")
 	#  
 	I_CHECK_BATTLE_BOSS_MAIN = RuleImage(roi_front=(555,63,164,47), roi_back=(550,58,174,57), threshold=0.8, method="Template matching", file="./tasks/MartialArts/mr/mr_check_battle_boss_main.png")
-
-

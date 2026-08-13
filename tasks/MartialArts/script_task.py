@@ -30,6 +30,8 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
     SEARCH_BOSS_TIMEOUT = 20
     SEARCH_BOSS_MAX_ATTEMPTS = 3
     SEARCH_BOSS_WAIT_RANGE = (3, 5)
+    ASSIST_POLL_INTERVAL = 3
+    ASSIST_LOG_INTERVAL = 30
 
     battle_type = 'ap'
 
@@ -65,6 +67,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
         return scopes
 
     def before_run(self):
+        if self.conf.general_climb.assist_mode:
+            logger.info('MartialArts assist mode enabled')
+            return
         sequence = self.conf.general_climb.run_sequence_v
         logger.info(f'MartialArts run sequence: {sequence}')
 
@@ -203,6 +208,28 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
             time.sleep(0.5)
         logger.warning(
             f'Cannot open existing MartialArts boss within {self.SEARCH_BOSS_TIMEOUT}s'
+        )
+        return False
+
+    def open_assist_target(self) -> bool:
+        """打开左侧最上方已有的协战目标。"""
+        logger.info('MartialArts assist target detected, open challenge panel')
+        timer = Timer(self.SEARCH_BOSS_TIMEOUT).start()
+        while not timer.reached():
+            self.screenshot()
+            if self.appear(self.I_CHECK_BATTLE_BOSS_MAIN):
+                logger.info('Entered MartialArts assist target challenge panel')
+                return True
+            if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=1) or \
+                    self.appear_then_click(self.I_UI_CONFIRM, interval=1):
+                continue
+            if self.appear(self.I_ASSIST_TARGET):
+                self.click(self.C_SELECT_FIRE_BOSS, interval=1.2)
+                self.device.click_record_clear()
+                continue
+            time.sleep(0.5)
+        logger.warning(
+            f'Cannot open MartialArts assist target within {self.SEARCH_BOSS_TIMEOUT}s'
         )
         return False
 
@@ -472,14 +499,51 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
                 break
         logger.info(f'MartialArts boss battles finished: {self.current_count}/{limit}')
 
+    def run_assist_battles(self):
+        """常驻轮询并挑战左侧已有的协战目标。"""
+        self.battle_type = 'boss'
+        self.current_count = 0
+        battle_conf = self.conf.boss_battle_conf
+        soul_switched = False
+        waiting_log = Timer(self.ASSIST_LOG_INTERVAL).start()
+
+        self.enter_boss_battle()
+        while True:
+            self.screenshot()
+            if not self.appear(self.I_ASSIST_TARGET):
+                if waiting_log.reached_and_reset():
+                    logger.info('Waiting for MartialArts assist target')
+                self.device.stuck_record_clear()
+                time.sleep(self.ASSIST_POLL_INTERVAL)
+                continue
+            waiting_log.reset()
+            if not self.open_assist_target():
+                self.goto_page(pages.page_martial_arts_boss)
+                self.device.stuck_record_clear()
+                time.sleep(self.ASSIST_POLL_INTERVAL)
+                continue
+            if not soul_switched:
+                self.switch_soul_before_battle('boss')
+                soul_switched = True
+            self.lock_team(battle_conf)
+            if not self.run_boss_battle_round(battle_conf):
+                self.goto_page(pages.page_martial_arts_boss)
+                self.device.stuck_record_clear()
+                time.sleep(self.ASSIST_POLL_INTERVAL)
+                continue
+            self.goto_page(pages.page_martial_arts_boss)
+
     def run(self):
         self.before_run()
-        for battle_type in self.conf.general_climb.run_sequence_v:
-            if battle_type == 'ap':
-                self.run_ap_battles()
-                continue
-            if battle_type == 'boss':
-                self.run_boss_battles()
+        if self.conf.general_climb.assist_mode:
+            self.run_assist_battles()
+        else:
+            for battle_type in self.conf.general_climb.run_sequence_v:
+                if battle_type == 'ap':
+                    self.run_ap_battles()
+                    continue
+                if battle_type == 'boss':
+                    self.run_boss_battles()
 
         self.goto_page(pages.page_main)
         self.set_next_run(task='MartialArts', success=True, finish=True)

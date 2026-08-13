@@ -126,6 +126,7 @@
   "ap_limit": "体力战斗次数",
   "ap100_limit": "100体爬塔次数限制",
   "boss_limit": "首领战斗次数",
+  "assist_mode": "助战模式",
   "run_sequence": "运行顺序",
   "random_sleep": "随机休息",
   "collect_paper_reward": "是否收取小纸人奖励",

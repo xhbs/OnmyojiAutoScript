@@ -11,6 +11,10 @@ from tasks.Component.config_scheduler import Scheduler
 
 
 class GeneralClimb(ConfigBase):
+    assist_mode: bool = Field(
+        default=False,
+        description='只挑战左侧已有的协战目标，不区分普通、精英或首领',
+    )
     ap_limit: int = Field(default=300)
     boss_limit: int = Field(default=20)
     run_sequence: str = Field(
