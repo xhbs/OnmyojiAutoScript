@@ -32,7 +32,12 @@ class HyaDevice(BaseTask):
     def fast_screenshot(self, screenshot: ScreenshotMethod):
         self.hya_screenshot_interval.wait()
         self.hya_screenshot_interval.reset()
-        method = self.device.screenshot_methods.get(screenshot.value, self.device.screenshot_adb)
+        method = self.device.screenshot_methods.get(screenshot.value)
+        if method is None:
+            method = self.device.screenshot_methods.get(
+                self.config.script.device.screenshot_method,
+                self.device.screenshot_adb,
+            )
         self.device.image = method()
         self.device.image_frame_id = None
         if image_black(self.device.image):
@@ -51,9 +56,13 @@ class HyaDevice(BaseTask):
             'Click %s @ %s' % (point2str(x, y), 'Click')
         )
         method = self.device.click_methods.get(control_method.value)
+        requested_method_available = method is not None
         if method is None:
-            method = self.device.click_adb
-        if control_method == ControlMethod.WINDOW_MESSAGE and control_method.value in self.device.click_methods:
+            method = self.device.click_methods.get(
+                self.config.script.device.control_method,
+                self.device.click_adb,
+            )
+        if control_method == ControlMethod.WINDOW_MESSAGE and requested_method_available:
             method(x=x, y=y, fast=True)
         else:
             method(x=x, y=y)
