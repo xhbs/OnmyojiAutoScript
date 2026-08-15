@@ -52,10 +52,9 @@ class Screenshot(Adb, DroidCast, Scrcpy, Window, NemuIpc):
             'scrcpy': self.screenshot_scrcpy,
         }
         if IS_WINDOWS:
-            methods.update({
-                'window_background': self.screenshot_window_background,
-                'nemu_ipc': self.screenshot_nemu_ipc,
-            })
+            methods['nemu_ipc'] = self.screenshot_nemu_ipc
+            if hasattr(self, 'root_node'):
+                methods['window_background'] = self.screenshot_window_background
         return methods
 
     def screenshot(self):

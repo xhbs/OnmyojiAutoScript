@@ -37,7 +37,7 @@ class Control(Minitouch, Adb, Scrcpy, Window):
             # 'Hermit': self.click_hermit,
             # 'MaaTouch': self.click_maatouch,
         }
-        if IS_WINDOWS:
+        if IS_WINDOWS and hasattr(self, 'root_node'):
             methods['window_message'] = self.click_window_message
         return methods
 
@@ -51,7 +51,7 @@ class Control(Minitouch, Adb, Scrcpy, Window):
             # 'Hermit': self.click_hermit,
             # 'MaaTouch': self.click_maatouch,
         }
-        if IS_WINDOWS:
+        if IS_WINDOWS and hasattr(self, 'root_node'):
             methods['window_message'] = self.long_click_window_message
         return methods
 
