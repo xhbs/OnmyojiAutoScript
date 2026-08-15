@@ -32,7 +32,8 @@ class HyaDevice(BaseTask):
     def fast_screenshot(self, screenshot: ScreenshotMethod):
         self.hya_screenshot_interval.wait()
         self.hya_screenshot_interval.reset()
-        self.device.image = self.device.screenshot_window_background() if screenshot == ScreenshotMethod.WINDOW_BACKGROUND else self.device.screenshot_nemu_ipc()
+        method = self.device.screenshot_methods.get(screenshot.value, self.device.screenshot_adb)
+        self.device.image = method()
         self.device.image_frame_id = None
         if image_black(self.device.image):
             logger.error('Screenshot image is black, try again')
@@ -49,10 +50,13 @@ class HyaDevice(BaseTask):
         logger.info(
             'Click %s @ %s' % (point2str(x, y), 'Click')
         )
-        if control_method == ControlMethod.MINITOUCH:
-            self.device.click_minitouch(x=x, y=y)
+        method = self.device.click_methods.get(control_method.value)
+        if method is None:
+            method = self.device.click_adb
+        if control_method == ControlMethod.WINDOW_MESSAGE and control_method.value in self.device.click_methods:
+            method(x=x, y=y, fast=True)
         else:
-            self.device.click_window_message(x=x, y=y, fast=True)
+            method(x=x, y=y)
 
     def set_fast_screenshot_interval(self, interval: float):
         """
