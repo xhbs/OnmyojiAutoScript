@@ -9,6 +9,24 @@
     "description": "投掷骰子"
   },
   {
+    "itemName": "rm_main_lock",
+    "imageName": "as_lock.png",
+    "roiFront": "886,646,31,30",
+    "roiBack": "871,620,69,76",
+    "method": "Template matching",
+    "threshold": 0.7,
+    "description": "大富翁主界面已锁定阵容"
+  },
+  {
+    "itemName": "rm_main_unlock",
+    "imageName": "as_unlock.png",
+    "roiFront": "886,646,31,30",
+    "roiBack": "871,620,69,76",
+    "method": "Template matching",
+    "threshold": 0.7,
+    "description": "大富翁主界面未锁定阵容"
+  },
+  {
     "itemName": "rm_mode_rob",
     "imageName": "rm_rm_mode_rob.png",
     "roiFront": "486,28,306,32",
@@ -20,11 +38,11 @@
   {
     "itemName": "rm_mode_throw",
     "imageName": "rm_rm_mode_throw.png",
-    "roiFront": "1053,582,83,38",
-    "roiBack": "1034,562,121,76",
+    "roiFront": "532,312,215,130",
+    "roiBack": "490,233,320,264",
     "method": "Template matching",
     "threshold": 0.8,
-    "description": ""
+    "description": "投掷对决模式标志"
   },
   {
     "itemName": "rm_fight_unlock",
@@ -36,10 +54,10 @@
     "description": ""
   },
   {
-    "itemName": "rm_fitght_boss",
-    "imageName": "rm_rm_fitght_boss.png",
+    "itemName": "rm_fitght_anchor",
+    "imageName": "rm_rm_fitght_anchor.png",
     "roiFront": "555,433,50,28",
-    "roiBack": "539,419,79,53",
+    "roiBack": "163,100,1011,473",
     "method": "Template matching",
     "threshold": 0.8,
     "description": ""
@@ -103,6 +121,33 @@
     "imageName": "rm_rm_fight_unlock_boss.png",
     "roiFront": "1129,515,32,32",
     "roiBack": "1118,502,53,51",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": ""
+  },
+  {
+    "itemName": "rm_throw_fight",
+    "imageName": "rm_rm_throw_fight.png",
+    "roiFront": "1053,582,83,38",
+    "roiBack": "1034,562,121,76",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "投掷按钮"
+  },
+  {
+    "itemName": "level_up",
+    "imageName": "rm_level_up.png",
+    "roiFront": "530,117,225,42",
+    "roiBack": "494,84,297,104",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": ""
+  },
+  {
+    "itemName": "cinque_not_enough",
+    "imageName": "rm_cinque_not_enough.png",
+    "roiFront": "356,123,90,51",
+    "roiBack": "336,82,129,106",
     "method": "Template matching",
     "threshold": 0.8,
     "description": ""

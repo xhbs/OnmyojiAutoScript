@@ -2,7 +2,7 @@
 """武道大会战斗任务。"""
 
 import time
-import random
+from datetime import datetime, timedelta
 
 from cached_property import cached_property
 
@@ -26,10 +26,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
     TICKET_COST = 1
     BATTLE_TIMEOUT = 600
     RESOURCE_OCR_RETRIES = 3
-    ENTER_BATTLE_TIMEOUT = 20
-    SEARCH_BOSS_TIMEOUT = 20
+    CLICK_WAIT_TIMEOUT = 10
     SEARCH_BOSS_MAX_ATTEMPTS = 3
-    SEARCH_BOSS_WAIT_RANGE = (3, 5)
+    SEARCH_BOSS_TIMEOUT = 20
     ASSIST_POLL_INTERVAL = 3
     ASSIST_LOG_INTERVAL = 30
 
@@ -70,8 +69,31 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
         if self.conf.general_climb.assist_mode:
             logger.info('MartialArts assist mode enabled')
             return
+        configured_limit_time = self.conf.general_climb.limit_time
+        self.limit_time = timedelta(
+            hours=configured_limit_time.hour,
+            minutes=configured_limit_time.minute,
+            seconds=configured_limit_time.second,
+        )
+        self._task_time_limit_reached = False
         sequence = self.conf.general_climb.run_sequence_v
-        logger.info(f'MartialArts run sequence: {sequence}')
+        logger.info(
+            f'MartialArts run sequence: {sequence}, '
+            f'limit_time={self.limit_time}'
+        )
+
+    def _can_start_next_battle(self) -> bool:
+        """仅在新一场战斗的边界检查任务软时间限制。"""
+        if self._task_time_limit_reached:
+            return False
+        if datetime.now() - self.start_time < self.limit_time:
+            return True
+        self._task_time_limit_reached = True
+        logger.info(
+            'MartialArts task time reached; '
+            'stop before starting next battle'
+        )
+        return False
 
     def enter_ap_battle(self):
         """从任意已知页面导航至武道大会日常训练页面。"""
@@ -177,7 +199,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
         """切换到普通搜寻或注灵搜寻模式。"""
         target = self.I_MAR_FIRE_BOSS_GOLD if use_gold else self.I_MAR_FIRE_BOSS
         mode_name = 'gold' if use_gold else 'normal'
-        timer = Timer(8).start()
+        timer = Timer(self.CLICK_WAIT_TIMEOUT).start()
         while not timer.reached():
             self.screenshot()
             if self.appear(target):
@@ -192,7 +214,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
     def open_existing_boss(self) -> bool:
         """打开地图上已经完成搜寻、可继续挑战的首领。"""
         logger.info('MartialArts existing boss detected, open challenge panel')
-        timer = Timer(self.SEARCH_BOSS_TIMEOUT).start()
+        timer = Timer(self.CLICK_WAIT_TIMEOUT).start()
         while not timer.reached():
             self.screenshot()
             if self.appear(self.I_CHECK_BATTLE_BOSS_MAIN):
@@ -207,7 +229,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
                 continue
             time.sleep(0.5)
         logger.warning(
-            f'Cannot open existing MartialArts boss within {self.SEARCH_BOSS_TIMEOUT}s'
+            f'Cannot open existing MartialArts boss within {self.CLICK_WAIT_TIMEOUT}s'
         )
         return False
 
@@ -245,7 +267,6 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
         mode_name = 'gold' if use_gold else 'normal'
         max_attempts = max_attempts or self.SEARCH_BOSS_MAX_ATTEMPTS
         for attempt in range(1, max_attempts + 1):
-            wait_seconds = random.randint(*self.SEARCH_BOSS_WAIT_RANGE)
             self.screenshot()
             if self.appear(self.I_CHECK_BATTLE_BOSS_MAIN):
                 logger.info('MartialArts boss found, entered challenge panel')
@@ -260,11 +281,11 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
                 logger.info(
                     f'MartialArts boss {mode_name} search clicked '
                     f'({attempt}/{max_attempts}), '
-                    f'wait up to {wait_seconds}s for challenge panel'
+                    f'wait up to {self.CLICK_WAIT_TIMEOUT}s for challenge panel'
                 )
                 self.device.click_record_clear()
 
-            wait_timer = Timer(wait_seconds).start()
+            wait_timer = Timer(self.CLICK_WAIT_TIMEOUT).start()
             while not wait_timer.reached():
                 self.screenshot()
                 if self.appear(self.I_CHECK_BATTLE_BOSS_MAIN):
@@ -357,7 +378,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
 
     def enter_battle(self, max_attempts: int | None = None) -> bool:
         """点击体力挑战并等待进入通用准备/战斗页面。"""
-        timer = Timer(self.ENTER_BATTLE_TIMEOUT).start()
+        timer = Timer(self.CLICK_WAIT_TIMEOUT).start()
         click_count = 0
         while not timer.reached():
             self.screenshot()
@@ -379,7 +400,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
                 self.device.click_record_clear()
                 continue
             time.sleep(0.5)
-        logger.warning(f'Cannot enter MartialArts battle within {self.ENTER_BATTLE_TIMEOUT}s')
+        logger.warning(f'Cannot enter MartialArts battle within {self.CLICK_WAIT_TIMEOUT}s')
         return False
 
     def run_battle_round(self, battle_conf: GeneralBattleConfig) -> bool:
@@ -408,6 +429,8 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
         self.switch_soul_before_battle('ap')
         self.lock_team(battle_conf)
         while self.current_count < limit:
+            if not self._can_start_next_battle():
+                break
             self.goto_page(pages.page_martial_arts_ap)
             if not self.resources_enough():
                 logger.info('MartialArts resources are insufficient, stop AP battles')
@@ -418,7 +441,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
 
     def enter_boss_fight(self) -> bool:
         """在战斗小界面点击开始或继续挑战，并等待进入通用战斗页面。"""
-        timer = Timer(self.ENTER_BATTLE_TIMEOUT).start()
+        timer = Timer(self.CLICK_WAIT_TIMEOUT).start()
         click_count = 0
         while not timer.reached():
             self.screenshot()
@@ -428,13 +451,14 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
             if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=1) or \
                     self.appear_then_click(self.I_UI_CONFIRM, interval=1):
                 continue
-            # 首次挑战显示“开启挑战”，失败后会变成“继续挑战”；两者按钮位置相同。
-            if self.appear(self.I_CHECK_BATTLE_BOSS_MAIN):
-                if self.click(self.I_MAR_FIRE_BOSS_MAIN, interval=1.5):
-                    click_count += 1
-                    self.device.click_record_clear()
+            if self.appear_then_click(self.I_MAR_FIRE_BOSS_MAIN, interval=1.5) or \
+                    self.appear_then_click(self.I_MAR_FIRE_BOSS_MAIN_AGAIN, interval=1.5):
+                click_count += 1
+                self.device.click_record_clear()
                 continue
-            if self.appear_then_click(self.I_MAR_FIRE_BOSS_MAIN, interval=1.5):
+            # Both buttons share coordinates; use the panel marker as a fallback.
+            if self.appear(self.I_CHECK_BATTLE_BOSS_MAIN) and \
+                    self.click(self.I_MAR_FIRE_BOSS_MAIN, interval=1.5):
                 click_count += 1
                 self.device.click_record_clear()
                 continue
@@ -446,7 +470,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
             )
         else:
             logger.warning(
-                f'Boss challenge button not found within {self.ENTER_BATTLE_TIMEOUT}s'
+                f'Boss challenge button not found within {self.CLICK_WAIT_TIMEOUT}s'
             )
         return False
 
@@ -476,6 +500,8 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
 
         self.enter_boss_battle()
         while self.current_count < limit:
+            if not self._can_start_next_battle():
+                break
             self.goto_page(pages.page_martial_arts_boss)
             if not self.search_boss():
                 break
@@ -539,6 +565,8 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, QuickLoadout, BaseActivity, 
             self.run_assist_battles()
         else:
             for battle_type in self.conf.general_climb.run_sequence_v:
+                if not self._can_start_next_battle():
+                    break
                 if battle_type == 'ap':
                     self.run_ap_battles()
                     continue

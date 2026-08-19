@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from tasks.ActivityShikigami.config import check_soul_by_number, check_soul_by_ocr
 from tasks.Component.GeneralBattle.config_general_battle import GeneralBattleConfig
 from tasks.Component.QuickLoadout.config import NamedQuickLoadoutConfig
-from tasks.Component.config_base import ConfigBase
+from tasks.Component.config_base import ConfigBase, Time
 from tasks.Component.config_scheduler import Scheduler
 
 
@@ -14,6 +14,11 @@ class GeneralClimb(ConfigBase):
     assist_mode: bool = Field(
         default=False,
         description='只挑战左侧已有的协战目标，不区分普通、精英或首领',
+    )
+    limit_time: Time = Field(
+        title='运行时间限制',
+        default=Time(minute=30),
+        description='达到限制时间后不再开始下一场战斗，已经开始的战斗会正常完成',
     )
     ap_limit: int = Field(default=300)
     boss_limit: int = Field(default=20)

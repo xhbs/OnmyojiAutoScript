@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 
 from module.base.timer import Timer
-from module.image import get_image_client
+from module.device.handle import Handle, WindowNode, handle_num2title, handle_title2num, is_handle_valid
 from module.logger import logger
 from module.base.utils import point2str
 from module.exception import RequestHumanTakeover, GameStuckError
@@ -29,7 +29,43 @@ class HyaDevice(BaseTask):
     hya_screenshot_interval = Timer(0.2)  # 300ms
     hya_fs_check_timer = Timer(3 * 60)  # 五分钟跑不完就应该是出问题了
 
+    def _ensure_root_node(self) -> None:
+        """Ensure root_node is initialized on the Device.
+
+        Handle.__init__ returns early without creating root_node when
+        config.script.device.handle is empty. This rebuilds it on demand.
+        """
+        if hasattr(self.device, 'root_node'):
+            return
+        from module.config.config import Config
+        root_handle = self.device.config.script.device.handle
+        if not root_handle:
+            logger.warning('Device handle config is empty, cannot build root_node')
+            return
+        root_handle_title = ''
+        root_handle_num = 0
+        if root_handle == 'auto':
+            logger.info('Handle is auto, searching for emulator window')
+            window_list = Handle.all_windows()
+            root_handle_title = Handle.auto_handle_title(window_list)
+            root_handle_num = handle_title2num(root_handle_title)
+        else:
+            try:
+                root_handle_num = int(root_handle)
+                if is_handle_valid(root_handle_num):
+                    root_handle_title = handle_num2title(root_handle_num)
+            except ValueError:
+                if handle_title2num(root_handle) != 0:
+                    root_handle_num = handle_title2num(root_handle)
+                    root_handle_title = root_handle
+        self.device.root_handle_title = root_handle_title
+        self.device.root_handle_num = root_handle_num
+        self.device.root_node = WindowNode(name=root_handle_title, num=root_handle_num)
+        Handle.handle_tree(root_handle_num, self.device.root_node)
+        logger.info(f'root_node initialized: title={root_handle_title}, num={root_handle_num}')
+
     def fast_screenshot(self, screenshot: ScreenshotMethod):
+        self._ensure_root_node()
         self.hya_screenshot_interval.wait()
         self.hya_screenshot_interval.reset()
         method = self.device.screenshot_methods.get(screenshot.value)
@@ -52,6 +88,7 @@ class HyaDevice(BaseTask):
         return self.device.image
 
     def fast_click(self, x: int, y: int, control_method: ControlMethod = ControlMethod.WINDOW_MESSAGE) -> None:
+        self._ensure_root_node()
         logger.info(
             'Click %s @ %s' % (point2str(x, y), 'Click')
         )
@@ -92,5 +129,5 @@ if __name__ == '__main__':
     # execution_time = timeit.timeit(screenshot, number=50)
     # print(f"执行总的时间: {execution_time * 1000} ms")
 
-    hd.fast_screenshot()
-
+    from tasks.Hyakkiyakou.config import ScreenshotMethod
+    hd.fast_screenshot(screenshot=ScreenshotMethod.WINDOW_BACKGROUND)

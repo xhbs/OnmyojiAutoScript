@@ -3,19 +3,34 @@
 
 from datetime import time, timedelta
 
-from pydantic import Field, validator
+from pydantic import Field, model_validator, validator
 
 from module.logger import logger
 from tasks.Component.GeneralBattle.config_general_battle import GeneralBattleConfig
+from tasks.Component.SwitchSoul.switch_soul_config import SwitchSoulConfig
 from tasks.Component.config_base import ConfigBase, Time
 from tasks.Component.config_scheduler import Scheduler
 
 
 class RichManRunConfig(ConfigBase):
     limit_time: Time = Field(default=Time(hour=1, minute=30), description='总限制时间')
-    pass_limit: int = Field(default=50, description='最多投掷次数')
+    throw_limit: int = Field(default=50, description='骰子投掷次数限制', ge=0)
     active_souls_clean: bool = Field(default=False, description='运行结束后清理御魂')
-    random_sleep: bool = Field(default=False, description='点击战斗前随机休息')
+    random_sleep: bool = Field(
+        default=False,
+        title='RichMan Random Sleep',
+        description='每轮投掷流程结束后随机休眠',
+    )
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_pass_limit(cls, data):
+        """兼容旧版门票爬塔次数限制。"""
+        if isinstance(data, dict):
+            data = dict(data)
+            if 'throw_limit' not in data and 'pass_limit' in data:
+                data['throw_limit'] = data['pass_limit']
+        return data
 
     @property
     def limit_time_v(self) -> timedelta:
@@ -43,46 +58,91 @@ class RichManRunConfig(ConfigBase):
         return value
 
 
-class RichManPurchaseConfig(ConfigBase):
-    buy_ap: bool = Field(default=False, description='是否购买体力')
-    buy_reward: bool = Field(default=False, description='是否购买奖励积分')
-    buy_ticket: bool = Field(default=False, description='是否购买定向骰子')
-
-
-class RichManSoulConfig(ConfigBase):
-    enable_switch_pass: bool = Field(default=False, description='是否按编号切换御魂预设')
-    pass_group_team: str = Field(default='-1,-1', description='御魂预设组号,队伍号')
-    enable_switch_pass_by_name: bool = Field(default=False, description='是否按名称切换御魂预设')
-    pass_group_team_name: str = Field(default='', description='御魂预设组名,队伍名')
-    enable_switch_boss: bool = Field(default=False, description='是否按编号切换首领战御魂预设')
-    boss_group_team: str = Field(default='-1,-1', description='首领战御魂预设组号,队伍号')
-    enable_switch_boss_by_name: bool = Field(default=False, description='是否按名称切换首领战御魂预设')
-    boss_group_team_name: str = Field(default='', description='首领战御魂预设组名,队伍名')
-
-    def validate_switch_soul(self):
-        if self.enable_switch_pass:
-            parts = self.pass_group_team.split(',')
-            if len(parts) != 2 or not all(part.strip().isdigit() for part in parts):
-                raise ValueError('[PASS]御魂预设必须是数字组号和队伍号，格式为 组号,队伍号')
-        if self.enable_switch_pass_by_name:
-            parts = self.pass_group_team_name.split(',')
-            if len(parts) != 2 or not all(part.strip() for part in parts):
-                raise ValueError('[PASS]御魂预设名称格式必须为 组名,队伍名')
-        if self.enable_switch_boss:
-            parts = self.boss_group_team.split(',')
-            if len(parts) != 2 or not all(part.strip().isdigit() for part in parts):
-                raise ValueError('[BOSS]御魂预设必须是数字组号和队伍号，格式为 组号,队伍号')
-        if self.enable_switch_boss_by_name:
-            parts = self.boss_group_team_name.split(',')
-            if len(parts) != 2 or not all(part.strip() for part in parts):
-                raise ValueError('[BOSS]御魂预设名称格式必须为 组名,队伍名')
-        return self
-
-
 class RichMan(ConfigBase):
     scheduler: Scheduler = Field(default_factory=Scheduler)
-    general_climb: RichManRunConfig = Field(default_factory=RichManRunConfig)
-    purchase: RichManPurchaseConfig = Field(default_factory=RichManPurchaseConfig)
-    switch_soul_config: RichManSoulConfig = Field(default_factory=RichManSoulConfig)
-    pass_battle_conf: GeneralBattleConfig = Field(default_factory=GeneralBattleConfig)
-    boss_battle_conf: GeneralBattleConfig = Field(default_factory=GeneralBattleConfig)
+    run_config: RichManRunConfig = Field(default_factory=RichManRunConfig)
+    general_battle: GeneralBattleConfig = Field(default_factory=GeneralBattleConfig)
+    switch_soul: SwitchSoulConfig = Field(default_factory=SwitchSoulConfig)
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_common_configs(cls, data):
+        """兼容旧版分离的普通战/首领战配置。"""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        if 'run_config' not in data and 'general_climb' in data:
+            data['run_config'] = data['general_climb']
+        if 'switch_soul' not in data:
+            soul = data.get('common_switch_soul', data.get('switch_soul_config'))
+            if isinstance(soul, dict):
+                normal_enable = soul.get(
+                    'enable_switch_normal', soul.get('enable_switch_pass', False),
+                )
+                normal_by_name = soul.get(
+                    'enable_switch_normal_by_name',
+                    soul.get('enable_switch_pass_by_name', False),
+                )
+                boss_enable = soul.get('enable_switch_boss', False)
+                boss_by_name = soul.get('enable_switch_boss_by_name', False)
+
+                enable = soul.get(
+                    'enable', soul.get('common_enable_switch', normal_enable or boss_enable),
+                )
+                enable_by_name = soul.get(
+                    'enable_switch_by_name',
+                    soul.get('common_enable_switch_by_name', normal_by_name or boss_by_name),
+                )
+                if 'switch_group_team' in soul:
+                    group_team = soul['switch_group_team']
+                elif 'common_group_team' in soul:
+                    group_team = soul['common_group_team']
+                elif normal_enable:
+                    group_team = soul.get('normal_group_team', soul.get('pass_group_team', '-1,-1'))
+                elif boss_enable:
+                    group_team = soul.get('boss_group_team', '-1,-1')
+                else:
+                    group_team = soul.get('group_team', '-1,-1')
+
+                group_name = soul.get('group_name', '')
+                team_name = soul.get('team_name', '')
+                if not group_name and not team_name:
+                    combined_name = soul.get('common_group_team_name', soul.get('group_team_name', ''))
+                    if not combined_name:
+                        if normal_by_name:
+                            combined_name = soul.get(
+                                'normal_group_team_name', soul.get('pass_group_team_name', ''),
+                            )
+                        elif boss_by_name:
+                            combined_name = soul.get('boss_group_team_name', '')
+                    if isinstance(combined_name, str) and ',' in combined_name:
+                        group_name, team_name = (
+                            part.strip() for part in combined_name.split(',', 1)
+                        )
+
+                data['switch_soul'] = {
+                    'enable': enable,
+                    'switch_group_team': group_team,
+                    'enable_switch_by_name': enable_by_name,
+                    'group_name': group_name,
+                    'team_name': team_name,
+                }
+
+        if 'general_battle' not in data:
+            if isinstance(data.get('common_battle_config'), dict):
+                data['general_battle'] = data['common_battle_config']
+                return data
+            normal = data.get('normal_battle_preset', data.get('pass_battle_conf'))
+            boss = data.get('boss_battle_preset', data.get('boss_battle_conf'))
+            if isinstance(normal, dict):
+                common = dict(normal)
+                # 普通战未配置预设、但首领战已配置时，保留首领战的预设选择。
+                if (not common.get('preset_enable', False)
+                        and isinstance(boss, dict) and boss.get('preset_enable', False)):
+                    common['preset_enable'] = True
+                    common['preset_group'] = boss.get('preset_group', 1)
+                    common['preset_team'] = boss.get('preset_team', 1)
+                data['general_battle'] = common
+            elif isinstance(boss, dict):
+                data['general_battle'] = boss
+        return data
