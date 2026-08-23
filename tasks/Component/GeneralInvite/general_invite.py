@@ -356,18 +356,19 @@ class GeneralInvite(BaseTask, GeneralInviteAssets):
             return ''
         return str(text).replace(' ', '').replace('　', '').strip()
 
-    def _find_exact_friend_area(self, rule, name: str) -> tuple[int, int, int, int] | None:
+    def _find_friend_areas(self, rule, name: str) -> list[tuple[str, tuple[int, int, int, int]]]:
         target_name = self._normalize_friend_name_text(name)
         if not target_name:
-            return None
+            return []
 
         boxed_results = rule.detect_and_ocr(self.device.image)
         if not boxed_results:
-            return None
+            return []
 
+        matches = []
         for result in boxed_results:
             ocr_text = self._normalize_friend_name_text(result.ocr_text)
-            if ocr_text != target_name:
+            if not ocr_text.startswith(target_name):
                 continue
             box = result.box
             rec_x = box[0, 0]
@@ -380,9 +381,8 @@ class GeneralInvite(BaseTask, GeneralInviteAssets):
                 int(rec_w),
                 int(rec_h)
             )
-            logger.info(f'Exact match friend "{name}" in {rule.name} at {area}')
-            return area
-        return None
+            matches.append((ocr_text, area))
+        return matches
 
     @staticmethod
     def _random_point_in_area(area: tuple[int, int, int, int]) -> tuple[int, int]:
@@ -429,14 +429,19 @@ class GeneralInvite(BaseTask, GeneralInviteAssets):
             self.screenshot()
             if len(self.I_SELECTED.match_all_any(self.device.image, frame_id=self.device.image_frame_id)) >= pre_cnt + 1:
                 return True
-            rule = self.O_FRIEND_NAME_1
-            select_area = self._find_exact_friend_area(rule, name)
-            if select_area is None:
-                rule = self.O_FRIEND_NAME_2
-                select_area = self._find_exact_friend_area(rule, name)
-            if select_area is None:
-                logger.info('Current page no exact friend')
+            friend_matches = []
+            for rule in (self.O_FRIEND_NAME_1, self.O_FRIEND_NAME_2):
+                for ocr_text, area in self._find_friend_areas(rule, name):
+                    friend_matches.append((rule, ocr_text, area))
+            if len(friend_matches) > 1:
+                matched_names = [match[1] for match in friend_matches]
+                logger.warning(f'Multiple friends match prefix "{name}": {matched_names}')
                 return False
+            if not friend_matches:
+                logger.info('Current page no friend matching prefix')
+                return False
+            rule, matched_name, select_area = friend_matches[0]
+            logger.info(f'Prefix match friend "{name}" -> "{matched_name}" in {rule.name} at {select_area}')
             click_x, click_y = self._random_point_in_area(select_area)
             self.device.click(x=click_x, y=click_y, control_name=rule.name)
             if self._wait_selected_appear(pre_cnt):
