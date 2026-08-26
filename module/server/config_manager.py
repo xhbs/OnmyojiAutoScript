@@ -15,6 +15,12 @@ from module.logger import logger
 
 
 CONFIG_NAME_RESERVED_CHARS = set('/\\:*?"<>|')
+CONFIG_TEMPLATE_NAME = 'template'
+CONFIG_AUXILIARY_JSON_NAMES = frozenset({'templates'})
+CONFIG_PROTECTED_NAMES = frozenset({
+    CONFIG_TEMPLATE_NAME,
+    *CONFIG_AUXILIARY_JSON_NAMES,
+})
 CONFIG_TASK_TRANSFER_EXCLUDED_KEYS = {
     "config_name",
     "running_task",
@@ -70,6 +76,10 @@ class ConfigValidationError(ValueError):
 
 class ConfigManager:
     @staticmethod
+    def is_protected_config_name(name: str) -> bool:
+        return str(name or '').strip().casefold() in CONFIG_PROTECTED_NAMES
+
+    @staticmethod
     def config_dir() -> Path:
         return Path.cwd() / 'config'
 
@@ -85,7 +95,10 @@ class ConfigManager:
         name = (name or '').strip()
         if not name:
             raise ConfigNameError("Config name is required")
-        if not allow_template and name == 'template':
+        normalized_name = name.casefold()
+        if normalized_name in CONFIG_AUXILIARY_JSON_NAMES:
+            raise ConfigNameError(f"Config name {name} is reserved")
+        if not allow_template and normalized_name == CONFIG_TEMPLATE_NAME:
             raise ConfigNameError("Config name template is reserved")
         if '.' in name:
             raise ConfigNameError("Config name cannot contain dots")
@@ -476,7 +489,7 @@ class ConfigManager:
         json_files = config_path.glob('*.json')
         result = []
         for json in json_files:
-            if json.stem == 'template':
+            if ConfigManager.is_protected_config_name(json.stem):
                 continue
             result.append(json.stem)
         if len(result) == 0:
@@ -496,7 +509,10 @@ class ConfigManager:
         json_files = config_path.glob('*.json')
         result = []
         for json in json_files:
-            if json.stem == 'template':
+            normalized_name = json.stem.casefold()
+            if normalized_name in CONFIG_AUXILIARY_JSON_NAMES:
+                continue
+            if normalized_name == CONFIG_TEMPLATE_NAME:
                 result.insert(0, json.stem)
             else:
                 result.append(json.stem)
@@ -510,6 +526,12 @@ class ConfigManager:
         :param template:
         :return:
         """
+        if ConfigManager.is_protected_config_name(file):
+            logger.error(f'config name is reserved: {file}')
+            return
+        if str(template or '').strip().casefold() in CONFIG_AUXILIARY_JSON_NAMES:
+            logger.error(f'config template name is reserved: {template}')
+            return
         config_path = Path.cwd() / 'config'
         template_path = config_path / f'{template}.json'
         file_path = config_path / f'{file}.json'
@@ -555,6 +577,12 @@ class ConfigManager:
         :param new_name: 新的配置文件名称
         :return: True or False
         """
+        if (
+            ConfigManager.is_protected_config_name(old_name)
+            or ConfigManager.is_protected_config_name(new_name)
+        ):
+            logger.error(f'cannot rename protected config: {old_name} -> {new_name}')
+            return False
         config_path = Path.cwd() / 'config'
         old_path = config_path / f'{old_name}.json'
         new_path = config_path / f'{new_name}.json'
@@ -579,6 +607,9 @@ class ConfigManager:
         :param file:  不带json后缀
         :return: True or False
         """
+        if ConfigManager.is_protected_config_name(file):
+            logger.error(f'cannot delete protected config: {file}')
+            return False
         config_path = Path.cwd() / 'config'
         file_path = config_path / f'{file}.json'
         if not file_path.exists():

@@ -8,6 +8,7 @@ config/*.yaml
 config/*.json
 config/tmp*
 !config/template*.json
+config/templates.json
 config/*.crt
 *.pyw
 dev_tools/debug_tools

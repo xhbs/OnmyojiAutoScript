@@ -195,7 +195,12 @@ async def config_rename(old_name: str = '', new_name: str = ''):
     :param new_name: new config name
     :return: True or False
     """
-    if old_name == new_name or new_name == '':
+    if (
+        old_name == new_name
+        or new_name == ''
+        or ConfigManager.is_protected_config_name(old_name)
+        or ConfigManager.is_protected_config_name(new_name)
+    ):
         return False
     if old_name in mm.script_process:
         if mm.script_process[old_name].state != ScriptState.INACTIVE:
@@ -213,7 +218,7 @@ async def config_delete(name: str = ''):
     :param name: config name
     :return: True or False
     """
-    if name == '' or name == 'template':
+    if name == '' or ConfigManager.is_protected_config_name(name):
         raise HTTPException(status_code=400, detail='Delete failed')
     if name in mm.script_process:
         if mm.script_process[name].state != ScriptState.INACTIVE:
