@@ -7,6 +7,7 @@ from module.gui.context.add import Add
 from module.gui.context.settings import Setting
 from module.gui.context.process_manager import ProcessManager
 from module.gui.context.utils import Utils
+from module.gui.context.templates import TemplateManager
 from module.gui.register_type.paint_image import PaintImage
 from module.gui.register_type.rule_file import RuleFile
 from module.gui.fluent_app import FluentApp
@@ -26,11 +27,12 @@ if __name__ == "__main__":
     setting = Setting()
     process_manager = ProcessManager()
     utils = Utils()
-
+    template_manager = TemplateManager()
     app.set_context_property(setting, 'setting')
     app.set_context_property(add_config, 'add_config')
     app.set_context_property(process_manager, 'process_manager')
     app.set_context_property(utils, 'utils')
+    app.set_context_property(template_manager, 'template_manager')
     app.qml_register_type(PaintImage, 'PaintImage')
     app.qml_register_type(RuleFile, 'RuleFile')
     # 启动一个GUI

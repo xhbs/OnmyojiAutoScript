@@ -299,6 +299,12 @@ class ProcessManager(QObject):
             logger.info(f'Script {config} is not running')
             return False
 
+    @Slot(str, str, result="bool")
+    def gui_apply_template(self, config: str, tasks: str) -> bool:
+        """Apply a template to the current config's task enable flags."""
+        target = self.check_script(config)
+        return target.gui_apply_template(tasks)
+
     @Slot(str, str, str, str, float, result="bool")
     def gui_set_task_number(self, config: str, task: str, group: str, arg: str, value) -> bool:
         """

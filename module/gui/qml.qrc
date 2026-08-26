@@ -36,5 +36,6 @@
         <file>qml/Content/NotifyTest.qml</file>
         <file>qml/Content/TaskList.qml</file>
         <file>qml/Component/Notity.qml</file>
+        <file>qml/Content/TemplateList.qml</file>
     </qresource>
 </RCC>

@@ -207,6 +207,15 @@ class Script:
             logger.error(e)
             return False
 
+    def gui_apply_template(self, tasks: str) -> bool:
+        """Enable a template's tasks and schedule them to run immediately."""
+        try:
+            task_names = json.loads(tasks) if isinstance(tasks, str) else tasks
+        except (TypeError, json.JSONDecodeError):
+            logger.error(f'Invalid task template: {tasks}')
+            return False
+        return self.config.apply_task_template(task_names)
+
     @zerorpc.stream
     def gui_mirror_image(self):
         """

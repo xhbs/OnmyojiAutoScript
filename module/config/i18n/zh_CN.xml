@@ -122,6 +122,7 @@
     <message><source>Update</source><translation>更新</translation></message>
     <message><source>Overview</source><translation>总览</translation></message>
 	<message><source>TaskList</source><translation>任务总览</translation></message>
+    <message><source>Template</source><translation>模板</translation></message>
     <message>
         <source>Script</source>
         <translation>脚本</translation>
@@ -758,5 +759,28 @@ Refresh：直接刷新，如果刷新操作进入CD，将标记为失败并退�
 	<message><source>Time Of Mystery</source><translation>强制设定出现神秘商店当天的执行时间</translation></message>
 	<message><source>time_of_mystery_help</source><translation>限定[00:00:01-23:30:00],这将使你无视掉调度器的Interval。保持默认'00:00:00'表示不使用</translation></message>
 	<message><source>TakoConfig</source><translation>石距加成</translation></message>
+</context>
+<context>
+    <name>Overview</name>
+    <message><source>Template</source><translation>模板</translation></message>
+    <message><source>Apply</source><translation>应用</translation></message>
+    <message><source>No template selected</source><translation>请选择模板</translation></message>
+    <message><source>Template applied</source><translation>模板已应用</translation></message>
+    <message><source>Template apply failed</source><translation>模板应用失败</translation></message>
+</context>
+<context>
+    <name>TemplateList</name>
+    <message><source>Template Management</source><translation>模板管理</translation></message>
+    <message><source>Template name</source><translation>模板名称</translation></message>
+    <message><source>New</source><translation>新建</translation></message>
+    <message><source>Save</source><translation>保存</translation></message>
+    <message><source>Delete</source><translation>删除</translation></message>
+    <message><source>Templates</source><translation>已保存模板</translation></message>
+    <message><source>Edit</source><translation>编辑</translation></message>
+    <message><source>Select tasks for this template</source><translation>选择模板中的任务</translation></message>
+    <message><source>Template saved</source><translation>模板已保存</translation></message>
+    <message><source>Template name and tasks are required</source><translation>请输入模板名称并至少选择一个任务</translation></message>
+    <message><source>Template deleted</source><translation>模板已删除</translation></message>
+    <message><source>Select a template to delete</source><translation>请选择要删除的模板</translation></message>
 </context>
 </TS>

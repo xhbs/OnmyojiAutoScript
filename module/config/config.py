@@ -174,6 +174,43 @@ class Config(ConfigState, ConfigManual, ConfigWatcher, ConfigMenu):
         """
         self.model.write_json(self.config_name, self.model.dict())
 
+    def apply_task_template(self, task_names: list[str]) -> bool:
+        """Enable template tasks and schedule them to run immediately."""
+        if not isinstance(task_names, list) or not task_names:
+            return False
+
+        selected = {
+            convert_to_underscore(str(task_name))
+            for task_name in task_names
+            if str(task_name).strip()
+        }
+
+        with self.lock_config:
+            model_data = self.model.dict()
+            available = {
+                key
+                for key, value in model_data.items()
+                if key not in {"config_name", "running_task", "restart"}
+                and isinstance(value, dict)
+                and "scheduler" in value
+            }
+            selected &= available
+            if not selected:
+                return False
+
+            run_at = datetime.now().replace(microsecond=0)
+            for key in available:
+                task_object = getattr(self.model, key, None)
+                scheduler = getattr(task_object, "scheduler", None)
+                if scheduler is None:
+                    continue
+
+                scheduler.enable = key in selected
+                if scheduler.enable:
+                    scheduler.next_run = run_at
+
+            self.save()
+        return True
     def update_scheduler(self) -> None:
         """
         更新调度器， 设置pending_task and waiting_task

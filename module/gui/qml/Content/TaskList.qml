@@ -146,7 +146,7 @@ Item{
         const data = JSON.parse(process_manager.gui_task_list(MainEvent.scriptName))
         const menu = JSON.parse(process_manager.gui_menu())
         for(const key in menu){
-            if(key === "Overview" || key === 'TaskList' || key === 'Script' || key === 'Tools'){
+            if(key === "Overview" || key === 'TaskList' || key === 'Template' || key === 'Script' || key === 'Tools'){
                 continue
             }
             const groupData = classify(menu[key], data)

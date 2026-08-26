@@ -82,8 +82,14 @@ SplitPanel{
             }
             setLoader(component)
         }
-
-
+        else if(title === "Template"){
+            const component = Qt.createComponent("../../qml/Content/TemplateList.qml")
+            if(component.status !== Component.Ready){
+                console.error("TemplateList component is not ready")
+                return
+            }
+            setLoader(component)
+        }
         //最后才是一般的参数页面
         else{
             const component = Qt.createComponent("../../qml/Component/Args.qml")

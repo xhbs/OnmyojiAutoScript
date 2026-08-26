@@ -18,6 +18,10 @@ Item {
             setStatus(MainEvent.RunStatus.Free)
         }
     }
+    ListModel{
+        id: templateModel
+    }
+
 
 
     Item{
@@ -86,8 +90,55 @@ Item {
             }
         }
         FluArea{
-            id: schedulerRunning
+            id: templateArea
             anchors.top: schedulerOpen.bottom
+            anchors.topMargin: 10
+            width: parent.width
+            height: 50
+
+            RowLayout{
+                anchors.fill: parent
+                spacing: 4
+
+                FluText{
+                    text: qsTr("Template")
+                    Layout.leftMargin: 12
+                    Layout.preferredWidth: 58
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                FluComboBox{
+                    id: templateSelector
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    model: templateModel
+                    textRole: "name"
+                }
+
+                FluButton{
+                    text: qsTr("Apply")
+                    disabled: overStatus.runStatus !== MainEvent.RunStatus.Free
+                    Layout.rightMargin: 10
+                    Layout.alignment: Qt.AlignVCenter
+                    onClicked: {
+                        if(templateSelector.currentIndex < 0){
+                            showSuccess(qsTr("No template selected"))
+                            return
+                        }
+                        const item = templateModel.get(templateSelector.currentIndex)
+                        if(process_manager.gui_apply_template(root.configName, item.tasks_json)){
+                            showSuccess(qsTr("Template applied"))
+                        }else{
+                            showSuccess(qsTr("Template apply failed"))
+                        }
+                    }
+                }
+            }
+        }
+
+        FluArea{
+            id: schedulerRunning
+            anchors.top: templateArea.bottom
             anchors.topMargin: 10
             width: parent.width
             height: 100
@@ -327,10 +378,20 @@ Item {
     }
 
     Component.onCompleted:{
+        loadTemplates()
+        template_manager.templates_changed.connect(loadTemplates)
         process_manager.sig_update_task.connect(update_task)
         process_manager.sig_update_pending.connect(update_pending)
         process_manager.sig_update_waiting.connect(update_waiting)
         startInit.start()
+    }
+
+    function loadTemplates(){
+        templateModel.clear()
+        const data = JSON.parse(template_manager.list_templates())
+        for(const item of data){
+            templateModel.append(item)
+        }
     }
     function update_task(config, data){
         if(typeof data !== "string"){

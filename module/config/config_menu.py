@@ -16,6 +16,7 @@ class ConfigMenu:
         # 总览
         self.menu["Overview"] = []
         self.menu['TaskList'] = []
+        self.menu['Template'] = []
         # 脚本设置
         self.menu['Script'] = ['Script', 'GlobalGame', 'Restart']
         # 刷御魂
@@ -56,6 +57,7 @@ class ConfigMenu:
     @cached_property
     def gui_menu_list(self) -> dict:
         del self.menu['TaskList']
+        del self.menu['Template']
         del self.menu['Tools']
         return self.menu
 

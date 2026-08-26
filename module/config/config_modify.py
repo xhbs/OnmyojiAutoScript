@@ -70,6 +70,15 @@ class ConfigModify(Config):
             logger.error(e)
             return False
 
+    def gui_apply_template(self, tasks: str) -> bool:
+        """Apply a template while the script process is unavailable."""
+        try:
+            task_names = json.loads(tasks) if isinstance(tasks, str) else tasks
+        except (TypeError, json.JSONDecodeError):
+            logger.error(f'Invalid task template: {tasks}')
+            return False
+        return self.apply_task_template(task_names)
+
     def gui_task_list(self) -> str:
         """
         获取给gui显示的任务列表
