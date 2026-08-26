@@ -1,11 +1,9 @@
 # This Python file uses the following encoding: utf-8
 
-import json
-
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from module.config.task_templates import TaskTemplateStore
+from module.config.task_templates import TaskTemplateStore, build_task_template_tasks
 from module.server.api_logger import ApiLoggingRoute
 from module.server.main_manager import mm
 from module.server.script_process import ScriptState
@@ -39,11 +37,7 @@ async def task_template_list():
 @template_app.get("/tasks")
 async def task_template_tasks(config_name: str = Query(...)):
     config = _ensure_config(config_name)
-    task_data = json.loads(config.gui_task_list())
-    return [
-        {"name": name, "enabled": bool(value.get("enable", False))}
-        for name, value in task_data.items()
-    ]
+    return build_task_template_tasks(config)
 
 
 @template_app.put("")

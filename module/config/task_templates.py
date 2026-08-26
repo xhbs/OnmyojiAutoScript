@@ -7,6 +7,25 @@ from threading import RLock
 from module.logger import logger
 
 
+def build_task_template_tasks(config) -> list[dict[str, object]]:
+    tasks = []
+    for key, value in config.model.dict().items():
+        if (
+            key == "restart"
+            or not isinstance(value, dict)
+            or "scheduler" not in value
+        ):
+            continue
+        scheduler = value["scheduler"]
+        tasks.append(
+            {
+                "name": config.model.type(key),
+                "enabled": bool(scheduler.get("enable", False)),
+            }
+        )
+    return tasks
+
+
 class TaskTemplateStore:
     """Persist reusable task selections independently from any GUI toolkit."""
 

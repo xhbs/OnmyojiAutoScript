@@ -1,6 +1,26 @@
 import json
 
-from module.config.task_templates import TaskTemplateStore
+from module.config.task_templates import TaskTemplateStore, build_task_template_tasks
+
+
+class FakeConfigModel:
+    @staticmethod
+    def dict():
+        return {
+            "config_name": "oas1",
+            "restart": {},
+            "script": {"error": {}},
+            "area_boss": {"scheduler": {"enable": True}},
+            "pets": {"scheduler": {"enable": False}},
+        }
+
+    @staticmethod
+    def type(key):
+        return {"area_boss": "AreaBoss", "pets": "Pets"}[key]
+
+
+class FakeConfig:
+    model = FakeConfigModel()
 
 
 def test_task_template_store_save_rename_and_delete(tmp_path):
@@ -26,3 +46,10 @@ def test_task_template_store_rejects_empty_values(tmp_path):
     assert not store.save_template("", ["Pets"])
     assert not store.save_template("日常", [])
     assert store.list_templates() == []
+
+
+def test_build_task_template_tasks_from_base_config_model():
+    assert build_task_template_tasks(FakeConfig()) == [
+        {"name": "AreaBoss", "enabled": True},
+        {"name": "Pets", "enabled": False},
+    ]
