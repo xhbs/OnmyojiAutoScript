@@ -31,6 +31,19 @@ class ScriptTask(
 
     conf: Chess = None
 
+    def _wait_chess_action_state(self, condition) -> bool:
+        """在单次动作后限时轮询目标图标状态。"""
+        deadline = time.monotonic() + self.ACTION_ICON_WAIT_TIMEOUT
+        while time.monotonic() < deadline:
+            self.device.stuck_record_clear()
+            self.screenshot()
+            if condition():
+                return True
+            time.sleep(self.FAST_OPERATION_INTERVAL)
+        self.device.stuck_record_clear()
+        self.screenshot()
+        return bool(condition())
+
     def run(self):
         """按执行次数循环百鬼棋局，并可在鼬乐币刷满时提前结束。"""
         chess_task_config = getattr(self.config, 'chess', None)
@@ -65,6 +78,11 @@ class ScriptTask(
         rank_protection = bool(
             getattr(chess_config, 'rank_protection', False)
         )
+        self._matchmaking_timeout_seconds = max(
+            10,
+            int(getattr(chess_config, 'matchmaking_timeout_seconds', 60)),
+        )
+        self._consecutive_matchmaking_timeouts = 0
         completed = 0
         rank_protection_exits_remaining = 0
         logger.info(
@@ -72,7 +90,8 @@ class ScriptTask(
             f'lineup={strategy["key"]} ({strategy["display_name"]}), '
             f'run_count={target_count}, limit_time={self.limit_time}, '
             f'coin_full_exit={coin_full_exit}, '
-            f'rank_protection={rank_protection}'
+            f'rank_protection={rank_protection}, '
+            f'matchmaking_timeout={self._matchmaking_timeout_seconds}s'
         )
 
         while (
@@ -328,7 +347,6 @@ class ScriptTask(
             if name in self.shikigami_deploy_positions
         }
         self.equip_souls_from_hand(verified_board_names)
-        self.retry_arakawa_goldfish_after_soul_equipment()
         return self._is_preparation_mode()
 
     def _run_preparation_economy_until_time_limit(self) -> None:
@@ -543,36 +561,45 @@ class ScriptTask(
 
     def _close_chess_lobby_abnormal_page(self) -> bool:
         """关闭棋局大厅开战时偶发出现的红色返回键异常页面。"""
-        recovered = False
-        while self.appear(self.I_BACK_RED):
-            if not recovered:
-                logger.warning(
-                    'Chess start blocked by abnormal lobby page; '
-                    'close it with back red'
-                )
-            if self.appear_then_click(
-                self.I_BACK_RED,
-                interval=self.SLOW_POLL_INTERVAL,
+        if not self.appear(self.I_BACK_RED):
+            return False
+        logger.warning(
+            'Chess start blocked by abnormal lobby page; '
+            'close it with back red'
+        )
+        for attempt in range(1, self.ACTION_ICON_MAX_ATTEMPTS + 1):
+            self.device.click_record_remove(self.I_BACK_RED)
+            self.click(self.I_BACK_RED)
+            if self._wait_chess_action_state(
+                lambda: not self.appear(self.I_BACK_RED)
             ):
-                recovered = True
-            self.device.stuck_record_clear()
-            time.sleep(self.SLOW_POLL_INTERVAL)
-            self.screenshot()
-        if recovered:
-            logger.info(
-                'Chess abnormal lobby page closed; retry normal game start'
+                logger.info(
+                    'Chess abnormal lobby page closed; '
+                    f'attempt={attempt}/{self.ACTION_ICON_MAX_ATTEMPTS}'
+                )
+                return True
+            logger.warning(
+                'Chess abnormal lobby page still visible after click: '
+                f'attempt={attempt}/{self.ACTION_ICON_MAX_ATTEMPTS}, '
+                f'timeout={self.ACTION_ICON_WAIT_TIMEOUT:.0f}s'
             )
-        return recovered
+        raise GameStuckError(
+            'Chess: failed to close abnormal lobby page after 3 attempts'
+        )
 
     def _wait_until_in_chess_game(
         self,
         timeout: float,
         retry_start: bool = False,
     ) -> None:
-        """点击开始后等待匹配；匹配状态存在时不计入卡死和超时。"""
+        """点击开始后等待匹配，并在连续三次超时后结束任务。"""
         deadline = time.monotonic() + timeout
         waiting_logged = False
-        while time.monotonic() < deadline:
+        waiting_started_at = None
+        matchmaking_timeout = float(
+            getattr(self, '_matchmaking_timeout_seconds', 60)
+        )
+        while True:
             # 匹配可能持续很久。截图本身会先检查设备卡死计时，因此必须
             # 在每次截图之前清除，不能等识别到“取消等待”后才清除。
             self.device.stuck_record_clear()
@@ -582,18 +609,46 @@ class ScriptTask(
             # 开局成功标志，避免大厅或匹配动画中的相似区域造成误判。
             if self._is_in_chess_game():
                 logger.info('Chess matchmaking complete: entered battle')
+                self._consecutive_matchmaking_timeouts = 0
                 return
 
             if self.appear(self.I_CANCEL_WAITING):
+                now = time.monotonic()
+                if waiting_started_at is None:
+                    waiting_started_at = now
                 if not waiting_logged:
-                    logger.info('Chess matchmaking: waiting for other players')
+                    logger.info(
+                        'Chess matchmaking: waiting for other players; '
+                        f'limit={matchmaking_timeout:.0f}s'
+                    )
                     waiting_logged = True
-                # 只要“取消等待”仍存在，就说明程序没有卡死。刷新进入
-                # 对局的截止时间，使长时间匹配不会触发重启或等待超时。
                 self.device.stuck_record_clear()
-                deadline = time.monotonic() + timeout
+                if now - waiting_started_at >= matchmaking_timeout:
+                    self.click(self.C_CANCEL_WAITING)
+                    self._consecutive_matchmaking_timeouts += 1
+                    logger.warning(
+                        'Chess matchmaking timeout: '
+                        f'{self._consecutive_matchmaking_timeouts}/3, '
+                        f'limit={matchmaking_timeout:.0f}s'
+                    )
+                    if self._consecutive_matchmaking_timeouts >= 3:
+                        logger.warning('Chess matchmaking: 等待过多，结束任务')
+                        self.set_next_run(
+                            task='Chess',
+                            success=False,
+                            finish=True,
+                        )
+                        raise TaskEnd('Chess: 等待过多')
+                    waiting_started_at = None
+                    waiting_logged = False
+                    deadline = now + timeout
+                    time.sleep(self.ACTION_SETTLE_INTERVAL)
+                    continue
                 time.sleep(self.SLOW_POLL_INTERVAL)
                 continue
+
+            waiting_started_at = None
+            waiting_logged = False
 
             if (
                 retry_start
@@ -611,8 +666,11 @@ class ScriptTask(
                 ):
                     self.device.stuck_record_clear()
                     deadline = time.monotonic() + timeout
+            if time.monotonic() >= deadline:
+                raise GameStuckError(
+                    'Chess: timeout waiting for in-game markers'
+                )
             time.sleep(self.SLOW_POLL_INTERVAL)
-        raise GameStuckError('Chess: timeout waiting for in-game markers')
 
     def _start_chess_game(self) -> None:
         """从棋局大厅开战，确认进入局内后直接开始回合流程。"""
